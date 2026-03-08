@@ -1,0 +1,40 @@
+/**
+ * SERWA Professional - Global Styles
+ * 
+ * Tailwind directives + custom base styles.
+ * Brand colors: #f5f3f1 (ivory), #2F304D (secondary), #FA198B (accent), #F9DC5C (gold)
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Smooth scrolling for anchor links */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-serwa-primary text-serwa-secondary font-sans antialiased;
+    background-color: #f5f3f1;
+  }
+
+  /* Headings - elegant serif typography (BIOTOP-inspired) */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif font-semibold tracking-tight;
+  }
+}
+
+@layer components {
+  /* Reusable button styles */
+  .btn-primary {
+    @apply bg-serwa-accent text-white px-6 py-3 font-medium transition-all duration-300 
+           hover:bg-pink-600 hover:shadow-lg;
+  }
+  
+  .btn-outline {
+    @apply border-2 border-serwa-secondary text-serwa-secondary px-6 py-3 font-medium 
+           transition-all duration-300 hover:bg-serwa-secondary hover:text-serwa-primary;
+  }
+}
