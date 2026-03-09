@@ -43,19 +43,20 @@ export default function HomePageEnhanced() {
 
     const ctx = gsap.context(() => {
       // Initial position: bottle overlays model's hand
-      // These coordinates position the bottle exactly on the model's hand in the right container
+      // Positioned absolutely in hero section, NOT inside image container
+      // Calculate position to align with model's hand (right side of hero)
       gsap.set(bottle, {
-        position: 'absolute',
-        right: '20%', // Adjust based on where model's hand is
-        top: '48%',   // Adjust based on where model's hand is
-        width: '140px',
-        zIndex: 10,
+        position: 'fixed',
+        right: '18%',  // Position relative to viewport
+        top: '42%',    // Vertical alignment with hand
+        width: '160px',
+        zIndex: 100,   // Above everything
         transformOrigin: 'center center',
       })
 
       // Subtle idle floating when at rest
       gsap.to(bottle, {
-        y: '+=10',
+        y: '+=8',
         duration: 2.5,
         ease: 'sine.inOut',
         yoyo: true,
@@ -67,75 +68,47 @@ export default function HomePageEnhanced() {
         scrollTrigger: {
           trigger: heroRef.current,
           start: 'top top',
-          end: '+=2800',
-          scrub: 1.2,
+          end: '+=2500',
+          scrub: 1.5,
           pin: true,
           anticipatePin: 1,
           // markers: true, // Uncomment to debug
         },
       })
 
-      // Phase 1: Detach from hand (0-15%)
+      // Phase 1: Detach with Z-depth illusion (0-20%)
       tl.to(bottle, {
         scale: 1.05,
-        z: 50, // Move forward
-        filter: 'drop-shadow(0 15px 40px rgba(0,0,0,0.15))',
-        duration: 0.2,
+        y: '+=30',
+        filter: 'drop-shadow(0 20px 50px rgba(0,0,0,0.25)) blur(0.3px)',
+        duration: 0.25,
         ease: 'power2.out',
       })
 
-      // Phase 2: Move to LEFT side (15-35%)
+      // Phase 2: Move downward toward text content with scaling (20-50%)
       tl.to(bottle, {
-        motionPath: {
-          path: [
-            { x: 0, y: 0 },
-            { x: -window.innerWidth * 0.15, y: -50 },
-            { x: -window.innerWidth * 0.35, y: -20 },
-          ],
-          curviness: 1.3,
-        },
-        rotation: 3,
-        duration: 0.3,
+        y: '+=250',
+        x: '-=150',  // Move toward center/text
+        scale: 1.15, // Scale UP during movement
+        rotation: 2,
+        filter: 'drop-shadow(0 25px 60px rgba(0,0,0,0.3))',
+        duration: 0.4,
         ease: 'power1.inOut',
       })
 
-      // Phase 3: Lock at LEFT + scale up (35-45%)
+      // Phase 3: Lock in front of text (50-70%)
       tl.to(bottle, {
-        scale: 1.1,
         rotation: 0,
-        duration: 0.15,
+        duration: 0.25,
       })
 
-      // Phase 4: Move to RIGHT side (45-65%)
-      tl.to(bottle, {
-        motionPath: {
-          path: [
-            { x: -window.innerWidth * 0.35, y: -20 },
-            { x: 0, y: 30 },
-            { x: window.innerWidth * 0.3, y: 10 },
-          ],
-          curviness: 1.3,
-        },
-        rotation: -4,
-        duration: 0.3,
-        ease: 'power1.inOut',
-      })
-
-      // Phase 5: Lock at RIGHT + scale (65-75%)
-      tl.to(bottle, {
-        scale: 1.08,
-        rotation: -2,
-        duration: 0.15,
-      })
-
-      // Phase 6: Return to hand position (75-100%)
+      // Phase 4: Return to hand position (70-100%)
       tl.to(bottle, {
         x: 0,
         y: 0,
         scale: 1,
         rotation: 0,
-        z: 0,
-        filter: 'drop-shadow(0 5px 15px rgba(0,0,0,0.1))',
+        filter: 'drop-shadow(0 10px 25px rgba(0,0,0,0.15))',
         duration: 0.35,
         ease: 'power2.inOut',
       })
@@ -151,6 +124,18 @@ export default function HomePageEnhanced() {
         ref={heroRef}
         className="relative w-full min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-serwa-primary via-serwa-primary to-[#f0e8dc]"
       >
+        {/* FLOATING BOTTLE - Absolutely positioned, NOT inside image container */}
+        <img
+          ref={bottleRef}
+          src={BOTTLE_TRANSPARENT}
+          alt="SERWA Bottle"
+          className="hidden md:block absolute"
+          style={{
+            filter: 'drop-shadow(0 10px 25px rgba(0,0,0,0.15))',
+            pointerEvents: 'none',
+          }}
+        />
+
         <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8 min-h-[80vh]">
             
@@ -195,35 +180,23 @@ export default function HomePageEnhanced() {
               </div>
             </motion.div>
 
-            {/* RIGHT SIDE - Model Image Container */}
+            {/* RIGHT SIDE - Model Image Container (NO bottle inside) */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.5 }}
               className="relative w-full md:w-1/2 flex justify-center md:justify-end"
             >
-              {/* Container with gradient frame (matching your existing design) */}
+              {/* Container with gradient frame */}
               <div className="relative w-full max-w-md aspect-[4/5] rounded-3xl overflow-hidden bg-gradient-to-br from-pink-100 via-pink-50 to-yellow-50 shadow-2xl">
-                {/* Model image */}
+                {/* Model image ONLY - bottle is separate */}
                 <img
                   src={MODEL_IMAGE}
                   alt="SERWA Professional Model"
                   className="absolute inset-0 w-full h-full object-cover object-center"
                   onError={(e) => {
-                    // Fallback if model image not found
                     const target = e.target as HTMLImageElement
                     target.style.display = 'none'
-                  }}
-                />
-
-                {/* Animated transparent bottle overlay */}
-                <img
-                  ref={bottleRef}
-                  src={BOTTLE_TRANSPARENT}
-                  alt="SERWA Bottle"
-                  className="hidden md:block"
-                  style={{
-                    filter: 'drop-shadow(0 10px 25px rgba(0,0,0,0.15))',
                   }}
                 />
               </div>
