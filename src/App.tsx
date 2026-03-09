@@ -11,7 +11,7 @@
 
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
-import HomePageNew from './pages/HomePageNew'
+import HomePageLuxury from './pages/HomePageLuxury'
 import ShopPage from './pages/ShopPage'
 import OurStoryPage from './pages/OurStoryPage'
 import EducationPage from './pages/EducationPage'
@@ -28,7 +28,7 @@ function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<HomePageNew />} />
+        <Route path="/" element={<HomePageLuxury />} />
         <Route path="/shop" element={<ShopPage />} />
         <Route path="/shop/:collectionHandle" element={<ShopPage />} />
         <Route path="/product/:productHandle" element={<ProductPage />} />
