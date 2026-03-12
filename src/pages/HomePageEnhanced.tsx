@@ -10,7 +10,7 @@
  * - Modern, minimal, luxury aesthetic
  */
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { gsap } from 'gsap'
@@ -28,6 +28,24 @@ export default function HomePageEnhanced() {
   const bottleRef = useRef<HTMLImageElement>(null)
   const section1Ref = useRef<HTMLElement>(null)
   const section2Ref = useRef<HTMLElement>(null)
+  const carouselScrollerRef = useRef<HTMLDivElement>(null)
+  const [activeCarouselIndex, setActiveCarouselIndex] = useState(0)
+
+  const carouselBase = useMemo(() => products.slice(0, 8), [])
+  const carouselLoop = useMemo(
+    () => [...carouselBase, ...carouselBase, ...carouselBase],
+    [carouselBase],
+  )
+
+  const scrollToCarouselIndex = useCallback((idx: number) => {
+    // Always scroll within the middle copy for a seamless loop
+    const baseLen = carouselBase.length
+    const loopIdx = idx + baseLen
+    const el = document.getElementById(`hp-carousel-card-${loopIdx}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+    }
+  }, [carouselBase.length])
 
   // Main scroll animation
   useEffect(() => {
@@ -116,6 +134,66 @@ export default function HomePageEnhanced() {
 
     return () => ctx.revert()
   }, [])
+
+  // Detect centered carousel card (scale-up active, scale-down sides)
+  useEffect(() => {
+    const scroller = carouselScrollerRef.current
+    if (!scroller) return
+
+    const handle = () => {
+      const totalWidth = scroller.scrollWidth
+      const setWidth = totalWidth / 3
+
+      // Seamless infinite scroll: when user nears either end copy, jump by exactly one set width.
+      // Because content is duplicated, this \"teleport\" is visually continuous.
+      if (setWidth > 0) {
+        const x = scroller.scrollLeft
+        if (x <= setWidth * 0.25) {
+          scroller.scrollLeft = x + setWidth
+        } else if (x >= setWidth * 1.75) {
+          scroller.scrollLeft = x - setWidth
+        }
+      }
+
+      const rect = scroller.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+
+      let bestIdx = 0
+      let bestDist = Number.POSITIVE_INFINITY
+
+      for (let i = 0; i < carouselLoop.length; i++) {
+        const el = document.getElementById(`hp-carousel-card-${i}`)
+        if (!el) continue
+        const r = el.getBoundingClientRect()
+        const elCenter = r.left + r.width / 2
+        const dist = Math.abs(elCenter - centerX)
+        if (dist < bestDist) {
+          bestDist = dist
+          bestIdx = i
+        }
+      }
+
+      // Store base index (0..baseLen-1) so arrows behave predictably
+      const baseLen = carouselBase.length || 1
+      setActiveCarouselIndex(bestIdx % baseLen)
+    }
+
+    // Start in the middle set (gives room to scroll both ways)
+    requestAnimationFrame(() => {
+      const totalWidth = scroller.scrollWidth
+      const setWidth = totalWidth / 3
+      if (setWidth > 0) {
+        scroller.scrollLeft = setWidth
+      }
+      handle()
+    })
+    scroller.addEventListener('scroll', handle, { passive: true })
+    window.addEventListener('resize', handle)
+    return () => {
+      scroller.removeEventListener('scroll', handle)
+      window.removeEventListener('resize', handle)
+    }
+  }, [carouselLoop.length, carouselBase.length])
 
   return (
     <div className="relative bg-serwa-primary">
@@ -289,7 +367,7 @@ export default function HomePageEnhanced() {
       </section>
 
       {/* CAROUSEL SECTION */}
-      <section className="relative py-20 md:py-32 bg-serwa-primary">
+      <section className="relative py-24 md:py-32 bg-serwa-primary">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -304,35 +382,76 @@ export default function HomePageEnhanced() {
           </p>
         </motion.div>
 
-        {/* Product carousel */}
-        <div className="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-8 px-4 md:px-8 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {products.slice(0, 8).map((product) => (
-            <div
-              key={product.id}
-              className="flex-shrink-0 w-[280px] sm:w-[320px] snap-center"
+        {/* Product carousel (modern): arrows + center scale */} 
+        <div className="relative">
+          {/* Arrow controls (mobile + desktop) */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2 md:px-6 z-10">
+            <button
+              type="button"
+              aria-label="Previous"
+              onClick={() => scrollToCarouselIndex((activeCarouselIndex - 1 + carouselBase.length) % carouselBase.length)}
+              className="pointer-events-auto w-10 h-10 rounded-full bg-white/90 border border-serwa-secondary/10 shadow flex items-center justify-center text-serwa-secondary hover:bg-white transition-colors"
             >
-              <Link
-                to={`/product/${product.handle}`}
-                className="block bg-white rounded-3xl overflow-hidden shadow-xl border border-serwa-accent/10 hover:shadow-2xl hover:border-serwa-accent/30 transition-all duration-300 group"
-              >
-                <div className="aspect-[3/4] flex items-center justify-center p-6 bg-gradient-to-br from-serwa-primary/30 to-white">
-                  <img
-                    src={product.images[0] || '/placeholder-product.svg'}
-                    alt={product.title}
-                    className="max-h-full w-auto object-contain group-hover:scale-105 transition-transform duration-300"
-                  />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              aria-label="Next"
+              onClick={() => scrollToCarouselIndex((activeCarouselIndex + 1) % carouselBase.length)}
+              className="pointer-events-auto w-10 h-10 rounded-full bg-white/90 border border-serwa-secondary/10 shadow flex items-center justify-center text-serwa-secondary hover:bg-white transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          <div
+            ref={carouselScrollerRef}
+            className="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-12 px-4 md:px-8 mt-6 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {carouselLoop.map((product, loopIdx) => {
+              const baseLen = carouselBase.length || 1
+              const baseIdx = loopIdx % baseLen
+              const isActive = baseIdx === activeCarouselIndex
+              const base = 'flex-shrink-0 w-[260px] sm:w-[300px] md:w-[320px] snap-center transition-transform duration-300'
+              const scale = isActive ? 'scale-100 md:scale-105' : 'scale-95 md:scale-90'
+              const opacity = isActive ? 'opacity-100' : 'opacity-85'
+              const activeGlow = isActive
+                ? 'ring-2 ring-serwa-accent/60 shadow-[0_30px_80px_rgba(250,25,139,0.30)]'
+                : 'shadow-xl'
+              return (
+                <div
+                  key={`${product.id}-${loopIdx}`}
+                  id={`hp-carousel-card-${loopIdx}`}
+                  className={`${base} ${scale} ${opacity}`}
+                >
+                  <Link
+                    to={`/product/${product.handle}`}
+                    className={`block bg-white rounded-3xl overflow-hidden shadow-xl border border-serwa-accent/10 hover:shadow-2xl hover:border-serwa-accent/30 transition-all duration-300 group ${activeGlow}`}
+                  >
+                    <div className="aspect-[3/4] flex items-center justify-center p-6 bg-gradient-to-br from-serwa-primary/30 to-white">
+                      <img
+                        src={product.images[0] || '/placeholder-product.svg'}
+                        alt={product.title}
+                        className="max-h-full w-auto object-contain group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+                    <div className="p-6 text-center">
+                      <h3 className="font-serif text-xl font-semibold text-serwa-secondary">
+                        {product.title}
+                      </h3>
+                      <p className="text-serwa-secondary/70 text-sm mt-1">
+                        {product.variants[0]?.option || 'Professional'}
+                      </p>
+                    </div>
+                  </Link>
                 </div>
-                <div className="p-6 text-center">
-                  <h3 className="font-serif text-xl font-semibold text-serwa-secondary">
-                    {product.title}
-                  </h3>
-                  <p className="text-serwa-secondary/70 text-sm mt-1">
-                    {product.variants[0]?.option || 'Professional'}
-                  </p>
-                </div>
-              </Link>
-            </div>
-          ))}
+              )
+            })}
+          </div>
         </div>
 
         <div className="text-center mt-12">

@@ -32,6 +32,18 @@ const professionalAdvantages = [
     title: 'Simplified Inventory',
     description: 'No extra inventory needed — one cream + three ampoules replaces multiple separate products.',
   },
+  {
+    title: 'Not Tested on Animals',
+    description: 'Committed to cruelty-free practices — never tested on animals.',
+  },
+  {
+    title: 'Vegan',
+    description: 'Vegan-friendly formulations designed with conscious, modern beauty standards.',
+  },
+  {
+    title: 'Complete Transformation',
+    description: 'Inspired by “Serwa” — complete, whole, nothing missing. A system built for intentional results, not temporary beauty.',
+  },
 ]
 
 export default function EducationPage() {

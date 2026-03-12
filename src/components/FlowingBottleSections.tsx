@@ -9,7 +9,7 @@
  * The bottle animation is handled in HomePage.tsx
  */
 
-import React, { forwardRef } from 'react'
+import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { products } from '../data/products'
@@ -31,6 +31,57 @@ const FlowingBottleSections = forwardRef<HTMLDivElement, FlowingBottleSectionsPr
     
     const section1Ref = externalSection1Ref || internalSection1Ref
     const section2Ref = externalSection2Ref || internalSection2Ref
+    const carouselRef = useRef<HTMLDivElement>(null)
+    const [activeIndex, setActiveIndex] = useState(0)
+
+    // 0 = bottle card, then product cards
+    const carouselItems = useMemo(() => {
+      return [null, ...products.slice(0, 8)] as (null | (typeof products)[number])[]
+    }, [])
+
+    const scrollToIndex = useCallback((idx: number) => {
+      const el = document.getElementById(`explore-card-${idx}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+      }
+    }, [])
+
+    // Detect which card is centered (for modern scale effect)
+    useEffect(() => {
+      const scroller = carouselRef.current
+      if (!scroller) return
+
+      const handle = () => {
+        const rect = scroller.getBoundingClientRect()
+        const centerX = rect.left + rect.width / 2
+
+        let bestIdx = 0
+        let bestDist = Number.POSITIVE_INFINITY
+
+        for (let i = 0; i < carouselItems.length; i++) {
+          const el = document.getElementById(`explore-card-${i}`)
+          if (!el) continue
+          const r = el.getBoundingClientRect()
+          const elCenter = r.left + r.width / 2
+          const dist = Math.abs(elCenter - centerX)
+          if (dist < bestDist) {
+            bestDist = dist
+            bestIdx = i
+          }
+        }
+
+        setActiveIndex(bestIdx)
+      }
+
+      // Initial calc + update on scroll/resize
+      handle()
+      scroller.addEventListener('scroll', handle, { passive: true })
+      window.addEventListener('resize', handle)
+      return () => {
+        scroller.removeEventListener('scroll', handle)
+        window.removeEventListener('resize', handle)
+      }
+    }, [carouselItems.length])
 
   // Track scroll progress for section 1 (bottle left, content right)
   const { scrollYProgress: scrollSection1 } = useScroll({
@@ -170,57 +221,102 @@ const FlowingBottleSections = forwardRef<HTMLDivElement, FlowingBottleSectionsPr
           viewport={{ once: true, amount: 0.2 }}
           className="relative"
         >
-          <div className="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-8 px-4 md:px-8 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {/* First card: shampoo bottle */}
-            <div className="flex-shrink-0 w-[280px] sm:w-[320px] snap-center">
-              <Link
-                to="/shop/shampoo"
-                className="block bg-serwa-primary rounded-2xl overflow-hidden shadow-lg border border-serwa-secondary/10 hover:shadow-xl transition-shadow"
-              >
-                <div className="aspect-[3/4] flex items-center justify-center p-8 bg-gradient-to-b from-serwa-primary to-serwa-primary/80">
-                  <img
-                    src={SHAMPOO_BOTTLE_IMG}
-                    alt="SERWA Shampoo"
-                    className="max-h-full w-auto object-contain drop-shadow-lg"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/placeholder-product.svg'
-                    }}
-                  />
-                </div>
-                <div className="p-6 text-center">
-                  <h3 className="font-serif text-xl font-semibold text-serwa-secondary">
-                    Professional Shampoo
-                  </h3>
-                  <p className="text-serwa-secondary/70 text-sm mt-1">350ml & 1000ml</p>
-                </div>
-              </Link>
-            </div>
+          {/* Arrow controls (mobile + desktop) */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2 md:px-6">
+            <button
+              type="button"
+              aria-label="Previous"
+              onClick={() => scrollToIndex(Math.max(0, activeIndex - 1))}
+              className="pointer-events-auto w-10 h-10 rounded-full bg-serwa-primary/90 border border-serwa-secondary/10 shadow flex items-center justify-center text-serwa-secondary hover:bg-white transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              aria-label="Next"
+              onClick={() => scrollToIndex(Math.min(carouselItems.length - 1, activeIndex + 1))}
+              className="pointer-events-auto w-10 h-10 rounded-full bg-serwa-primary/90 border border-serwa-secondary/10 shadow flex items-center justify-center text-serwa-secondary hover:bg-white transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
 
-            {/* Rest: other products */}
-            {products.slice(0, 8).map((product) => (
-              <div key={product.id} className="flex-shrink-0 w-[280px] sm:w-[320px] snap-center">
-                <Link
-                  to={`/product/${product.handle}`}
-                  className="block bg-serwa-primary rounded-2xl overflow-hidden shadow-lg border border-serwa-secondary/10 hover:shadow-xl transition-shadow"
+          <div
+            ref={carouselRef}
+            className="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-10 px-4 md:px-8 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {carouselItems.map((item, idx) => {
+              const isActive = idx === activeIndex
+              const cardBase =
+                'flex-shrink-0 w-[260px] sm:w-[300px] md:w-[320px] snap-center transition-transform duration-300'
+              const scaleClass = isActive ? 'scale-100 md:scale-105' : 'scale-95 md:scale-90'
+              const opacityClass = isActive ? 'opacity-100' : 'opacity-85'
+
+              if (item === null) {
+                return (
+                  <div
+                    key="bottle-card"
+                    id={`explore-card-${idx}`}
+                    className={`${cardBase} ${scaleClass} ${opacityClass}`}
+                  >
+                    <Link
+                      to="/shop/shampoo"
+                      className="block bg-serwa-primary rounded-2xl overflow-hidden shadow-lg border border-serwa-secondary/10 hover:shadow-xl transition-shadow"
+                    >
+                      <div className="aspect-[3/4] flex items-center justify-center p-8 bg-gradient-to-b from-serwa-primary to-serwa-primary/80">
+                        <img
+                          src={SHAMPOO_BOTTLE_IMG}
+                          alt="SERWA Shampoo"
+                          className="max-h-full w-auto object-contain drop-shadow-lg"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/placeholder-product.svg'
+                          }}
+                        />
+                      </div>
+                      <div className="p-6 text-center">
+                        <h3 className="font-serif text-xl font-semibold text-serwa-secondary">
+                          Professional Shampoo
+                        </h3>
+                        <p className="text-serwa-secondary/70 text-sm mt-1">350ml & 1000ml</p>
+                      </div>
+                    </Link>
+                  </div>
+                )
+              }
+
+              return (
+                <div
+                  key={item.id}
+                  id={`explore-card-${idx}`}
+                  className={`${cardBase} ${scaleClass} ${opacityClass}`}
                 >
-                  <div className="aspect-[3/4] flex items-center justify-center p-6 bg-serwa-primary/50">
-                    <img
-                      src={product.images[0] || '/placeholder-product.svg'}
-                      alt={product.title}
-                      className="max-h-full w-auto object-contain"
-                    />
-                  </div>
-                  <div className="p-6 text-center">
-                    <h3 className="font-serif text-xl font-semibold text-serwa-secondary">
-                      {product.title}
-                    </h3>
-                    <p className="text-serwa-secondary/70 text-sm mt-1">
-                      {product.variants[0]?.option || 'View'}
-                    </p>
-                  </div>
-                </Link>
-              </div>
-            ))}
+                  <Link
+                    to={`/product/${item.handle}`}
+                    className="block bg-serwa-primary rounded-2xl overflow-hidden shadow-lg border border-serwa-secondary/10 hover:shadow-xl transition-shadow"
+                  >
+                    <div className="aspect-[3/4] flex items-center justify-center p-6 bg-serwa-primary/50">
+                      <img
+                        src={item.images[0] || '/placeholder-product.svg'}
+                        alt={item.title}
+                        className="max-h-full w-auto object-contain"
+                      />
+                    </div>
+                    <div className="p-6 text-center">
+                      <h3 className="font-serif text-xl font-semibold text-serwa-secondary">
+                        {item.title}
+                      </h3>
+                      <p className="text-serwa-secondary/70 text-sm mt-1">
+                        {item.variants[0]?.option || 'View'}
+                      </p>
+                    </div>
+                  </Link>
+                </div>
+              )
+            })}
           </div>
         </motion.div>
       </section>
